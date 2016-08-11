@@ -15,7 +15,7 @@ class DateValidator
 
 	private $dateString;
 	private $historicDate = false;
-	private $strictFormat = false;
+	private $dateFormatError;
 
 	function __construct($dateString) {
 		$this->dateString = $dateString;
@@ -34,13 +34,11 @@ class DateValidator
 	/**
 	 * Create new instance of DateValidator for historic dates
 	 * @param string $dateString
-	 * @param bool $strictFormat Can be set to false for more forgiving date input formats
 	 * @return object Instance of DateValidator
 	 */
-	public static function validateHistoricalDate($dateString, $strictFormat = true) {
+	public static function validateHistoricalDate($dateString) {
 		$instance = new DateValidator($dateString);
 		$instance->historicDate = true;
-		$instance->strictFormat = $strictFormat;
 		return $instance;
 	}
 
@@ -55,25 +53,26 @@ class DateValidator
 	/**
 	 * Check date is valid
 	 * @param bool $historic option
-	 * @return mixed Bool when not empty and historic option is set, datetime Object when historic is false and date is valid
+	 * @return mixed false if dateString is invalid, datetime Object when format is correct
 	 */
-	public function isValid($historic = false) {
-		// Allow more forgiving date format entry
-		$date = DateTime::createFromFormat('d/m/Y', $this->dateString); // False when not a valid date
-		
-		// Require specific DD/MM/YYYY format
-		if ($this->strictFormat) {
-			$dateItems = explode('/', $this->dateString);
-			// Check there are 3 elements
-			if (count($dateItems) === 3) {
-				// And each is the correct length
-				if (strlen($dateItems[0]) === 2 && strlen($dateItems[1]) === 2 && strlen($dateItems[2]) === 4) {
-					$ymd = $dateItems[2] . '-' . $dateItems[1] . '-' . $dateItems[0];
+	public function isValid($historic = false) {		
+		$dateItems = explode('/', $this->dateString);
+		// Check there are 3 elements
+		if (count($dateItems) === 3) {
+			// And each is the correct length
+			if (strlen($dateItems[0]) === 2 && strlen($dateItems[1]) === 2 && strlen($dateItems[2]) === 4) {
+				$day = intval($dateItems[0]);
+				$month = intval($dateItems[1]);
+				$year = intval($dateItems[2]);
+				// And it is a gregorian date
+				$isGregorianDate = checkdate($month, $day, $year);
+				if ($isGregorianDate) {
+					// Create DateTime object
 					try {
-						$date = new DateTime($ymd);
+						$date = new DateTime($year . '-' . $month . '-' . $day);
 					} catch (Exception $e) {
-				    	$error = $e->getMessage();
-				    	$date = false;
+						$this->dateFormatError = $e->getMessage();
+						$date = false;
 					}
 				} else {
 					$date = false;
@@ -81,11 +80,17 @@ class DateValidator
 			} else {
 				$date = false;
 			}
+		} else {
+			$date = false;
 		}
 
 		// Check it is a historic date
 		if ($date && $historic) {
-			return $this->isHistoric($date);
+			if ($this->isHistoric($date)) {
+				return $date;
+			} else {
+				$date = false;
+			}
 		}
 
 		return $date;
@@ -113,13 +118,22 @@ class DateValidator
 			$message = 'Please enter a historic date value.' . $format;
 		} else {
 			// Check value is valid
-			if ($this->isValid($this->historicDate)) {
+			$dateIsValid = $this->isValid($this->historicDate);
+			if ($dateIsValid) {
 				$type = 'success';
-				$message = 'Valid historic date!';
+				$td = '<br>' . $dateIsValid->format('l j F Y');
+				if ($this->historicDate) {
+					$message = 'Valid historic date!';
+					$message .= $td;
+				} else {
+					$message = 'Valid date!';
+					$message .= $td;
+				}
 			} else {
 				$type = 'alert';
 				if ($this->historicDate) {
 					$message = 'The provided date is not a valid <em>historic</em> date.' . $format;
+					$message .= $this->dateFormatError;
 				} else {
 					$message = 'The provided date is not valid.' . $format;
 				}

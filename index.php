@@ -2,18 +2,12 @@
 require_once('datevalidator.class.php');
 
 $message = '';
-$strictFormat = true;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 	$dateString = filter_input(INPUT_POST, 'date', FILTER_SANITIZE_STRING);
-	$format = filter_input(INPUT_POST, 'strict', FILTER_SANITIZE_NUMBER_INT);
-	if (!isset($format)) {
-		$strictFormat = false;
-	}
-	$result = DateValidator::validateHistoricalDate($dateString, $strictFormat);
+	$result = DateValidator::validateHistoricalDate($dateString);
 	$message = $result->getMessage();
 }
-
 ?>
 
 <html dir="ltr" lang="en-GB">
@@ -35,13 +29,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 						<div class="input-group-button">
 							<input type="submit" value="Validate Date" class="button">
 						</div>
-					</div>
-					<label for="strict">Strict Format</label>
-					<div class="switch">
-						<input class="switch-input" id="strict" type="checkbox" name="strict" value="1"<?php echo $strictFormat ? ' checked' : ''; ?>>
-						<label class="switch-paddle" for="strict">
-							<span class="show-for-sr">Strict Format</span>
-						</label>
 					</div>
 				</form>
 				<?php echo $message; ?>
